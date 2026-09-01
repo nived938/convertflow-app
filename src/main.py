@@ -11,15 +11,15 @@ def main(page: ft.Page):
     page.spacing = 0
     page.bgcolor = ft.Colors.SURFACE
     page.theme_mode = ft.ThemeMode.SYSTEM
-    page.window.min_width = 420
-    page.window.min_height = 700
 
     def open_website(_=None):
         webbrowser.open(CONVERTFLOW_URL)
 
-    # Windows does not currently have Flet's official WebView extension.
-    # Keep the Windows app native and open ConvertFlow in the system browser.
+    # Flet's official WebView extension currently supports Android, iOS,
+    # macOS and Web, but not Windows. Windows therefore uses the system browser.
     if sys.platform == "win32":
+        page.window.min_width = 420
+        page.window.min_height = 700
         page.window.width = 1100
         page.window.height = 760
 
@@ -64,6 +64,11 @@ def main(page: ft.Page):
     import flet_webview as fwv
 
     status = ft.Text("Ready", size=12, color=ft.Colors.ON_SURFACE_VARIANT)
+
+    def set_status(value: str):
+        status.value = value
+        page.update()
+
     webview = fwv.WebView(
         url=CONVERTFLOW_URL,
         expand=True,
@@ -91,10 +96,6 @@ def main(page: ft.Page):
             await webview.reload()
         except Exception:
             pass
-
-    def set_status(value: str):
-        status.value = value
-        page.update()
 
     toolbar = ft.Container(
         padding=ft.padding.symmetric(horizontal=8, vertical=6),
