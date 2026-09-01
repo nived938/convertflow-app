@@ -1,5 +1,5 @@
 #define MyAppName "ConvertFlow"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "ConvertFlow"
 #define MyAppExeName "ConvertFlow.exe"
 
@@ -16,6 +16,7 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
+PrivilegesRequired=admin
 
 [Files]
 Source: "..\build\windows\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
@@ -25,4 +26,5 @@ Name: "{group}\ConvertFlow"; Filename: "{app}\ConvertFlow.exe"
 Name: "{autodesktop}\ConvertFlow"; Filename: "{app}\ConvertFlow.exe"
 
 [Run]
+Filename: "{app}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Installing Microsoft Edge WebView2 Runtime..."; Flags: waituntilterminated
 Filename: "{app}\ConvertFlow.exe"; Description: "Launch ConvertFlow"; Flags: nowait postinstall skipifsilent
