@@ -1,8 +1,23 @@
 import sys
-import webbrowser
 import flet as ft
 
 CONVERTFLOW_URL = "https://convertflow-seven-delta.vercel.app/"
+
+
+def launch_desktop_webview() -> None:
+    """Run ConvertFlow inside the desktop app window, not the system browser."""
+    import webview
+
+    webview.create_window(
+        title="ConvertFlow",
+        url=CONVERTFLOW_URL,
+        width=1200,
+        height=820,
+        min_size=(900, 620),
+        text_select=True,
+        confirm_close=True,
+    )
+    webview.start(debug=False)
 
 
 def main(page: ft.Page):
@@ -11,55 +26,6 @@ def main(page: ft.Page):
     page.spacing = 0
     page.bgcolor = ft.Colors.SURFACE
     page.theme_mode = ft.ThemeMode.SYSTEM
-
-    def open_website(_=None):
-        webbrowser.open(CONVERTFLOW_URL)
-
-    # Flet's official WebView extension currently supports Android, iOS,
-    # macOS and Web, but not Windows. Windows therefore uses the system browser.
-    if sys.platform == "win32":
-        page.window.min_width = 420
-        page.window.min_height = 700
-        page.window.width = 1100
-        page.window.height = 760
-
-        page.add(
-            ft.SafeArea(
-                expand=True,
-                content=ft.Container(
-                    expand=True,
-                    padding=32,
-                    content=ft.Column(
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=20,
-                        controls=[
-                            ft.Icon(ft.Icons.SWAP_HORIZ, size=72),
-                            ft.Text("ConvertFlow", size=38, weight=ft.FontWeight.BOLD),
-                            ft.Text(
-                                "Convert, compress and transform files online.",
-                                size=17,
-                                text_align=ft.TextAlign.CENTER,
-                            ),
-                            ft.FilledButton(
-                                "Open ConvertFlow",
-                                icon=ft.Icons.OPEN_IN_BROWSER,
-                                on_click=open_website,
-                                width=260,
-                                height=52,
-                            ),
-                            ft.Text(
-                                "The Windows app uses your default browser for the ConvertFlow web app.",
-                                size=12,
-                                color=ft.Colors.ON_SURFACE_VARIANT,
-                                text_align=ft.TextAlign.CENTER,
-                            ),
-                        ],
-                    ),
-                ),
-            )
-        )
-        return
 
     import flet_webview as fwv
 
@@ -72,9 +38,9 @@ def main(page: ft.Page):
     webview = fwv.WebView(
         url=CONVERTFLOW_URL,
         expand=True,
-        on_page_started=lambda e: set_status("Loading ConvertFlow…"),
+        on_page_started=lambda e: set_status("Loading ConvertFlow..."),
         on_page_ended=lambda e: set_status("Ready"),
-        on_web_resource_error=lambda e: set_status("Unable to load a page. Check your connection."),
+        on_web_resource_error=lambda e: set_status("Unable to load the page. Check your connection."),
     )
 
     async def go_back(_):
@@ -123,4 +89,7 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    ft.run(main)
+    if sys.platform in ("win32", "darwin"):
+        launch_desktop_webview()
+    else:
+        ft.run(main)
