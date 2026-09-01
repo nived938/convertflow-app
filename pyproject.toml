@@ -5,6 +5,7 @@ description = "ConvertFlow cross-platform Python app"
 requires-python = ">=3.13,<3.14"
 dependencies = [
   "flet>=0.86.5,<0.87.0",
+  "pywebview>=5.4,<7.0",
 ]
 
 [tool.flet]
