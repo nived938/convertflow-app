@@ -29,19 +29,24 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && python -m pip install .
-      - name: Build Windows app
-        run: flet build windows --yes --no-rich-output --build-version 1.0.0 --artifact ConvertFlow
+      - name: Install desktop Python dependencies
+        run: python -m pip install --upgrade pip pywebview pyinstaller
+      - name: Build Windows app with PyInstaller
+        shell: powershell
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name ConvertFlow src\main.py
+          New-Item -ItemType Directory -Force build\windows | Out-Null
+          Copy-Item dist\ConvertFlow\* build\windows\ -Recurse -Force
+          if (-not (Test-Path "build\windows\ConvertFlow.exe")) { throw "Windows app executable was not created" }
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --yes --no-progress
       - name: Build Windows setup EXE
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Force build/installer | Out-Null
+          New-Item -ItemType Directory -Force build\installer | Out-Null
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\ConvertFlow.iss
-          if (-not (Test-Path "build/installer/ConvertFlow-Windows.exe")) { throw "Windows installer was not created" }
+          if (-not (Test-Path "build\installer\ConvertFlow-Windows.exe")) { throw "Windows installer was not created" }
       - uses: actions/upload-artifact@v4
         with:
           name: ConvertFlow-Windows
@@ -56,8 +61,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && python -m pip install .
+      - name: Install mobile Python dependencies
+        run: python -m pip install --upgrade pip "flet>=0.86.5,<0.87.0" "flet-webview>=0.1.0,<1.0.0"
       - name: Accept Android SDK licenses
         run: yes | flutter doctor --android-licenses || true
       - name: Build Android APK
@@ -83,17 +88,19 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && python -m pip install .
-      - name: Build macOS app
-        run: flet build macos --yes --build-version 1.0.0 --artifact ConvertFlow
+      - name: Install desktop Python dependencies
+        run: python -m pip install --upgrade pip pywebview pyinstaller
+      - name: Build macOS app with PyInstaller
+        shell: bash
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name ConvertFlow src/main.py
+          test -d dist/ConvertFlow.app
       - name: Create DMG
         shell: bash
         run: |
           mkdir -p release
-          APP=$(find build/macos -maxdepth 3 -name 'ConvertFlow.app' -type d | head -n 1)
-          test -d "$APP"
-          hdiutil create -volname "ConvertFlow" -srcfolder "$APP" -ov -format UDZO release/ConvertFlow-Mac.dmg
+          hdiutil create -volname "ConvertFlow" -srcfolder "dist/ConvertFlow.app" -ov -format UDZO release/ConvertFlow-Mac.dmg
+          test -f release/ConvertFlow-Mac.dmg
       - uses: actions/upload-artifact@v4
         with:
           name: ConvertFlow-Mac
@@ -142,8 +149,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && python -m pip install .
+      - name: Install mobile Python dependencies
+        run: python -m pip install --upgrade pip "flet>=0.86.5,<0.87.0" "flet-webview>=0.1.0,<1.0.0"
       - name: Import Apple signing certificate
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
