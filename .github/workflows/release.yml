@@ -34,7 +34,7 @@ jobs:
       - name: Build Windows app with PyInstaller
         shell: powershell
         run: |
-          pyinstaller --noconfirm --clean --windowed --name ConvertFlow src\main.py
+          pyinstaller --noconfirm --clean --windowed --name ConvertFlow --collect-all webview src\desktop_main.py
           New-Item -ItemType Directory -Force build\windows | Out-Null
           Copy-Item dist\ConvertFlow\* build\windows\ -Recurse -Force
           if (-not (Test-Path "build\windows\ConvertFlow.exe")) { throw "Windows app executable was not created" }
@@ -63,8 +63,6 @@ jobs:
           python-version: "3.13"
       - name: Install mobile Python dependencies
         run: python -m pip install --upgrade pip "flet>=0.86.5,<0.87.0" "flet-webview>=0.1.0,<1.0.0"
-      - name: Accept Android SDK licenses
-        run: yes | flutter doctor --android-licenses || true
       - name: Build Android APK
         run: flet build apk --yes --build-version 1.0.0 --artifact ConvertFlow
       - name: Locate APK
@@ -93,7 +91,7 @@ jobs:
       - name: Build macOS app with PyInstaller
         shell: bash
         run: |
-          pyinstaller --noconfirm --clean --windowed --name ConvertFlow src/main.py
+          pyinstaller --noconfirm --clean --windowed --name ConvertFlow --collect-all webview src/desktop_main.py
           test -d dist/ConvertFlow.app
       - name: Create DMG
         shell: bash
