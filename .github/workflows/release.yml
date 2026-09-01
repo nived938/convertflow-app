@@ -17,6 +17,8 @@ permissions:
 
 env:
   RELEASE_TAG: v1.0.0
+  PYTHONUTF8: "1"
+  FLET_CLI_NO_RICH_OUTPUT: "1"
 
 jobs:
   windows:
@@ -28,9 +30,9 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Python dependencies
-        run: python -m pip install --upgrade pip flet
+        run: python -m pip install --upgrade pip && python -m pip install .
       - name: Build Windows app
-        run: flet build windows --yes --build-version 1.0.0 --artifact ConvertFlow
+        run: flet build windows --yes --no-rich-output --build-version 1.0.0 --artifact ConvertFlow
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --yes --no-progress
@@ -39,6 +41,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force build/installer | Out-Null
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\ConvertFlow.iss
+          if (-not (Test-Path "build/installer/ConvertFlow-Windows.exe")) { throw "Windows installer was not created" }
       - uses: actions/upload-artifact@v4
         with:
           name: ConvertFlow-Windows
@@ -54,7 +57,9 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Python dependencies
-        run: python -m pip install --upgrade pip flet
+        run: python -m pip install --upgrade pip && python -m pip install .
+      - name: Accept Android SDK licenses
+        run: yes | flutter doctor --android-licenses || true
       - name: Build Android APK
         run: flet build apk --yes --build-version 1.0.0 --artifact ConvertFlow
       - name: Locate APK
@@ -79,14 +84,14 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Python dependencies
-        run: python -m pip install --upgrade pip flet
+        run: python -m pip install --upgrade pip && python -m pip install .
       - name: Build macOS app
         run: flet build macos --yes --build-version 1.0.0 --artifact ConvertFlow
       - name: Create DMG
         shell: bash
         run: |
           mkdir -p release
-          APP=$(find build/macos -maxdepth 2 -name 'ConvertFlow.app' -type d | head -n 1)
+          APP=$(find build/macos -maxdepth 3 -name 'ConvertFlow.app' -type d | head -n 1)
           test -d "$APP"
           hdiutil create -volname "ConvertFlow" -srcfolder "$APP" -ov -format UDZO release/ConvertFlow-Mac.dmg
       - uses: actions/upload-artifact@v4
@@ -111,16 +116,22 @@ jobs:
           cp release-assets/ConvertFlow-Android/ConvertFlow-Android.apk release/
           cp release-assets/ConvertFlow-Mac/ConvertFlow-Mac.dmg release/
           ls -lh release
-      - name: Create release
-        uses: softprops/action-gh-release@v2
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: ConvertFlow 1.0.0
+          draft: false
+          prerelease: false
+          make_latest: true
           generate_release_notes: true
+          overwrite_files: true
           files: |
             release/ConvertFlow-Windows.exe
             release/ConvertFlow-Android.apk
             release/ConvertFlow-Mac.dmg
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   ios:
     name: Signed iOS IPA
@@ -132,7 +143,7 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install Python dependencies
-        run: python -m pip install --upgrade pip flet
+        run: python -m pip install --upgrade pip && python -m pip install .
       - name: Import Apple signing certificate
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
