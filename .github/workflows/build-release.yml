@@ -1,0 +1,84 @@
+name: Build ConvertFlow Apps
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20, cache: npm}
+      - run: npm install
+      - run: npm run build
+      - run: npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with: {name: windows, path: dist/*.exe}
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20, cache: npm}
+      - run: npm install
+      - run: npm run build
+      - run: npx electron-builder --mac --publish never
+      - uses: actions/upload-artifact@v4
+        with: {name: macos, path: dist/*.dmg}
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20, cache: npm}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: 21}
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - run: npm install
+      - run: npm run build
+      - run: npx cap add android
+      - run: npx cap sync android
+      - run: chmod +x android/gradlew && cd android && ./gradlew assembleDebug
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk ConvertFlow-Android.apk
+      - uses: actions/upload-artifact@v4
+        with: {name: android, path: ConvertFlow-Android.apk}
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20, cache: npm}
+      - run: npm install
+      - run: npm run build
+      - run: npx cap add ios
+      - run: npx cap sync ios
+      - run: xcodebuild -workspace ios/App/App.xcworkspace -scheme App -sdk iphonesimulator -configuration Release -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO
+      - run: cd ios-build/Build/Products/Release-iphonesimulator && zip -r "$GITHUB_WORKSPACE/ConvertFlow-iOS.zip" App.app
+      - uses: actions/upload-artifact@v4
+        with: {name: ios, path: ConvertFlow-iOS.zip}
+  release:
+    needs: [windows, macos, android, ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {name: windows, path: release}
+      - uses: actions/download-artifact@v4
+        with: {name: macos, path: release}
+      - uses: actions/download-artifact@v4
+        with: {name: android, path: release}
+      - uses: actions/download-artifact@v4
+        with: {name: ios, path: release}
+      - name: Rename release files
+        run: |
+          mv release/*.exe release/ConvertFlow-Windows.exe
+          mv release/*.dmg release/ConvertFlow-macOS.dmg
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: ConvertFlow v1.0.${{ github.run_number }}
+          generate_release_notes: true
+          files: release/*
