@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "ConvertFlow cross-platform Python app"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-  "flet>=0.80.0,<0.81.0",
+  "flet>=0.86.5,<0.87.0",
 ]
 
 [tool.flet]
@@ -18,6 +18,10 @@ description = "Convert files online with ConvertFlow."
 copyright = "Copyright 2026 ConvertFlow"
 python_version = "3.13"
 splash_color = "#111827"
+
+[tool.flet.app]
+path = "src"
+module = "main.py"
 
 [tool.flet.windows]
 artifact = "ConvertFlow"
