@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.convertflow.lockedbrowser',
+  appId: 'com.convertflow.app',
   appName: 'ConvertFlow',
   webDir: 'dist',
   server: {
