@@ -1,41 +1,26 @@
-# ConvertFlow App
+# ConvertFlow Android Locked Browser
 
-A Python-based cross-platform app for [ConvertFlow](https://convertflow-seven-delta.vercel.app/).
+This repository contains the Android build of ConvertFlow. It opens the official service at `https://convertflow-seven-delta.vercel.app/` in a native Capacitor WebView.
 
-## Platforms
+## Behavior
 
-- Windows: installer EXE. The app opens ConvertFlow in the system browser because the official Flet WebView extension does not currently support Windows.
-- Android: APK with an embedded ConvertFlow WebView.
-- macOS: DMG with an embedded ConvertFlow WebView.
-- iOS: signed IPA when Apple Developer signing secrets are configured in GitHub Actions.
+- The destination is fixed in `capacitor.config.ts`.
+- The app has no address bar, URL field, or in-app navigation controls, so the destination is not exposed for editing.
+- HTTPS is required; cleartext traffic is disabled.
+- The website source repository has been updated so `/admin` and nested `/admin/*` paths render the public 404 page.
 
-## Download latest builds
-
-After the first tagged release is published, the stable download URLs are:
-
-- `https://github.com/nived938/convertflow-app/releases/latest/download/ConvertFlow-Windows.exe`
-- `https://github.com/nived938/convertflow-app/releases/latest/download/ConvertFlow-Android.apk`
-- `https://github.com/nived938/convertflow-app/releases/latest/download/ConvertFlow-Ios.ipa`
-- `https://github.com/nived938/convertflow-app/releases/latest/download/ConvertFlow-Mac.dmg`
-
-## Release
-
-Push a semantic version tag such as `v1.0.0` to start the Windows, Android and macOS builds and publish them to GitHub Releases.
+## Build
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+npm ci
+npm run build
+npx cap sync android
+cd android
+./gradlew assembleDebug
 ```
 
-### iOS signing
+The debug APK is generated at `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-An installable IPA cannot be produced without Apple signing credentials. GitHub Actions expects these repository secrets:
+## Notes
 
-- `APPLE_CERTIFICATE_BASE64`
-- `APPLE_CERTIFICATE_PASSWORD`
-- `IOS_PROVISION_PROFILE_BASE64`
-- `IOS_TEAM_ID`
-- `IOS_SIGNING_CERTIFICATE`
-- `IOS_PROVISIONING_PROFILE`
-
-The iOS job can then build a signed testing IPA and upload it to the release.
+This is a kiosk-style wrapper, not a general-purpose browser. Website navigation remains inside the WebView, and the Android system back action is the only navigation affordance supplied by the platform.

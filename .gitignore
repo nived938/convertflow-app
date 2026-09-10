@@ -10,3 +10,7 @@ dist/
 .DS_Store
 *.p12
 *.mobileprovision
+node_modules/
+android/.gradle/
+android/build/
+android/app/build/
