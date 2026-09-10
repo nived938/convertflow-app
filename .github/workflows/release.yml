@@ -1,200 +1,77 @@
-name: Build and Release ConvertFlow
+name: Build Android APK
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      build_ios:
-        description: "Build signed iOS IPA (requires Apple signing secrets)"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
 
 env:
-  RELEASE_TAG: v1.0.1
-  PYTHONUTF8: "1"
-  FLET_CLI_NO_RICH_OUTPUT: "1"
+  RELEASE_TAG: v1.0.2
 
 jobs:
-  windows:
-    name: Windows installer
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - name: Install desktop Python dependencies
-        run: python -m pip install --upgrade pip pywebview pyinstaller
-      - name: Download Microsoft WebView2 bootstrapper
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force build\windows | Out-Null
-          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "build\windows\MicrosoftEdgeWebview2Setup.exe"
-          if (-not (Test-Path "build\windows\MicrosoftEdgeWebview2Setup.exe")) { throw "WebView2 bootstrapper was not downloaded" }
-      - name: Build Windows app with PyInstaller
-        shell: powershell
-        run: |
-          pyinstaller --noconfirm --clean --windowed --name ConvertFlow --collect-all webview src\desktop_main.py
-          Copy-Item dist\ConvertFlow\* build\windows\ -Recurse -Force
-          if (-not (Test-Path "build\windows\ConvertFlow.exe")) { throw "Windows app executable was not created" }
-      - name: Install Inno Setup
-        shell: powershell
-        run: choco install innosetup --yes --no-progress
-      - name: Build Windows setup EXE
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force build\installer | Out-Null
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\ConvertFlow.iss
-          if (-not (Test-Path "build\installer\ConvertFlow-Windows.exe")) { throw "Windows installer was not created" }
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ConvertFlow-Windows
-          path: build/installer/ConvertFlow-Windows.exe
-          if-no-files-found: error
-
   android:
     name: Android APK
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
         with:
-          python-version: "3.13"
-      - name: Install mobile Python dependencies
-        run: python -m pip install --upgrade pip "flet>=0.86.5,<0.87.0" "flet-webview>=0.1.0,<1.0.0"
-      - name: Build Android APK
-        run: flet build apk --yes --build-version 1.0.1 --artifact ConvertFlow
-      - name: Locate APK
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      - name: Prepare APK
         shell: bash
         run: |
           mkdir -p release
-          APK=$(find build/apk -type f -name '*.apk' | head -n 1)
-          test -n "$APK"
-          cp "$APK" release/ConvertFlow-Android.apk
-      - uses: actions/upload-artifact@v4
+          cp android/app/build/outputs/apk/release/app-release.apk release/ConvertFlow-Android.apk
+          ls -lh release/ConvertFlow-Android.apk
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
         with:
           name: ConvertFlow-Android
           path: release/ConvertFlow-Android.apk
           if-no-files-found: error
 
-  macos:
-    name: macOS DMG
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - name: Install desktop Python dependencies
-        run: python -m pip install --upgrade pip pywebview pyinstaller
-      - name: Build macOS app with PyInstaller
-        shell: bash
-        run: |
-          pyinstaller --noconfirm --clean --windowed --name ConvertFlow --collect-all webview src/desktop_main.py
-          test -d dist/ConvertFlow.app
-      - name: Create DMG
-        shell: bash
-        run: |
-          mkdir -p release
-          hdiutil create -volname "ConvertFlow" -srcfolder "dist/ConvertFlow.app" -ov -format UDZO release/ConvertFlow-Mac.dmg
-          test -f release/ConvertFlow-Mac.dmg
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ConvertFlow-Mac
-          path: release/ConvertFlow-Mac.dmg
-          if-no-files-found: error
-
-  release:
-    name: GitHub release
-    needs: [windows, android, macos]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v5
-        with:
-          path: release-assets
-      - name: Prepare release assets
-        shell: bash
-        run: |
-          mkdir -p release
-          cp release-assets/ConvertFlow-Windows/ConvertFlow-Windows.exe release/
-          cp release-assets/ConvertFlow-Android/ConvertFlow-Android.apk release/
-          cp release-assets/ConvertFlow-Mac/ConvertFlow-Mac.dmg release/
-          ls -lh release
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          name: ConvertFlow 1.0.1
+          name: ConvertFlow 1.0.2 Android
           draft: false
           prerelease: false
           make_latest: true
           generate_release_notes: true
           overwrite_files: true
-          files: |
-            release/ConvertFlow-Windows.exe
-            release/ConvertFlow-Android.apk
-            release/ConvertFlow-Mac.dmg
+          files: release/ConvertFlow-Android.apk
         env:
           GITHUB_TOKEN: ${{ github.token }}
-
-  ios:
-    name: Signed iOS IPA
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_ios == true }}
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-      - name: Install mobile Python dependencies
-        run: python -m pip install --upgrade pip "flet>=0.86.5,<0.87.0" "flet-webview>=0.1.0,<1.0.0"
-      - name: Import Apple signing certificate
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
-        run: |
-          test -n "$APPLE_CERTIFICATE_BASE64" || (echo "Missing APPLE_CERTIFICATE_BASE64" && exit 1)
-          test -n "$APPLE_CERTIFICATE_PASSWORD" || (echo "Missing APPLE_CERTIFICATE_PASSWORD" && exit 1)
-          test -n "$IOS_PROVISION_PROFILE_BASE64" || (echo "Missing IOS_PROVISION_PROFILE_BASE64" && exit 1)
-          CERT="$RUNNER_TEMP/certificate.p12"
-          PROFILE="$RUNNER_TEMP/profile.mobileprovision"
-          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERT"
-          echo "$IOS_PROVISION_PROFILE_BASE64" | base64 --decode > "$PROFILE"
-          security create-keychain -p "ci" "$RUNNER_TEMP/build.keychain"
-          security default-keychain -s "$RUNNER_TEMP/build.keychain"
-          security unlock-keychain -p "ci" "$RUNNER_TEMP/build.keychain"
-          security import "$CERT" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$RUNNER_TEMP/build.keychain"
-          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          cp "$PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/convertflow.mobileprovision"
-      - name: Build iOS IPA
-        env:
-          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-          IOS_SIGNING_CERTIFICATE: ${{ secrets.IOS_SIGNING_CERTIFICATE }}
-          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
-        run: |
-          test -n "$IOS_TEAM_ID" || (echo "Missing IOS_TEAM_ID" && exit 1)
-          test -n "$IOS_SIGNING_CERTIFICATE" || (echo "Missing IOS_SIGNING_CERTIFICATE" && exit 1)
-          test -n "$IOS_PROVISIONING_PROFILE" || (echo "Missing IOS_PROVISIONING_PROFILE" && exit 1)
-          flet build ipa --yes --build-version 1.0.1 --artifact ConvertFlow \
-            --ios-team-id "$IOS_TEAM_ID" \
-            --ios-signing-certificate "$IOS_SIGNING_CERTIFICATE" \
-            --ios-provisioning-profile "$IOS_PROVISIONING_PROFILE" \
-            --ios-export-method release-testing
-      - name: Locate IPA
-        shell: bash
-        run: |
-          mkdir -p release
-          IPA=$(find build/ipa -type f -name '*.ipa' | head -n 1)
-          test -n "$IPA"
-          cp "$IPA" release/ConvertFlow-Ios.ipa
-      - name: Upload IPA to release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ env.RELEASE_TAG }}" release/ConvertFlow-Ios.ipa --clobber --repo "${{ github.repository }}"
