@@ -3,10 +3,10 @@ package com.convertflow.lockedbrowser;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import android.webkit.WebView;
 
 import androidx.core.view.WindowCompat;
 
@@ -19,18 +19,13 @@ public class MainActivity extends BridgeActivity {
 
         Window window = getWindow();
 
-        // Keep the app edge-to-edge so the top/header background fills the
-        // entire width, including the Android status-bar area.
+        // Keep the WebView completely edge-to-edge. This lets the website's
+        // top bar/background continue behind the Android status bar.
         WindowCompat.setDecorFitsSystemWindows(window, false);
-
-        // The status bar is transparent so the app background is visible
-        // behind it. This gives the top area the same full-width appearance
-        // as the original version of the app.
         window.setStatusBarColor(Color.TRANSPARENT);
         window.setNavigationBarColor(Color.WHITE);
-        window.getDecorView().setBackgroundColor(Color.rgb(15, 23, 42));
 
-        // Use white Android status-bar icons/text because the top area is dark.
+        // Status-bar time/icons must be WHITE. Navigation-bar icons remain dark.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             WindowInsetsController controller = window.getInsetsController();
             if (controller != null) {
@@ -46,49 +41,85 @@ public class MainActivity extends BridgeActivity {
             );
         }
 
-        final View webView = getBridge().getWebView();
-
+        final WebView webView = getBridge().getWebView();
         webView.setFitsSystemWindows(false);
+        webView.setPadding(0, 0, 0, 0);
 
         webView.setOnApplyWindowInsetsListener((view, insets) -> {
             int top = 0;
-            int bottom = 0;
-            int left = 0;
-            int right = 0;
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                 android.graphics.Insets bars = insets.getInsets(
                     WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()
                 );
                 top = bars.top;
-                bottom = bars.bottom;
-                left = bars.left;
-                right = bars.right;
             } else {
                 top = insets.getSystemWindowInsetTop();
-                bottom = insets.getSystemWindowInsetBottom();
-                left = insets.getSystemWindowInsetLeft();
-                right = insets.getSystemWindowInsetRight();
             }
 
-            ViewGroup.LayoutParams params = view.getLayoutParams();
-            if (params instanceof ViewGroup.MarginLayoutParams) {
-                ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
-                margins.leftMargin = left;
-                margins.topMargin = top;
-                margins.rightMargin = right;
-                margins.bottomMargin = bottom;
-                view.setLayoutParams(margins);
-            }
+            final float density = getResources().getDisplayMetrics().density;
+            final int topDp = Math.round(top / density);
 
-            // No WebView padding. The top margin moves the actual WebView
-            // viewport below the status bar, so fixed/sticky website text
-            // and the menu also start below the Android status bar.
-            view.setPadding(0, 0, 0, 0);
-
+            // Do NOT add a margin to the WebView. The WebView must stay full
+            // screen so the website header paints behind the status bar.
+            webView.post(() -> applyHeaderInset(webView, topDp));
             return insets;
         });
 
         webView.post(() -> webView.requestApplyInsets());
+
+        // React may create/replace the header after the first WebView layout.
+        // Re-apply the inset after the page has rendered and after navigation.
+        webView.postDelayed(() -> applyHeaderInset(webView, getStatusBarDp()), 400);
+        webView.postDelayed(() -> applyHeaderInset(webView, getStatusBarDp()), 1200);
+        webView.postDelayed(() -> applyHeaderInset(webView, getStatusBarDp()), 2500);
+        webView.postDelayed(() -> applyHeaderInset(webView, getStatusBarDp()), 5000);
+    }
+
+    private int getStatusBarDp() {
+        WindowInsets insets = getWindow().getDecorView().getRootWindowInsets();
+        if (insets == null) {
+            return 24;
+        }
+
+        int top;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()
+            );
+            top = bars.top;
+        } else {
+            top = insets.getSystemWindowInsetTop();
+        }
+
+        return Math.round(top / getResources().getDisplayMetrics().density);
+    }
+
+    private void applyHeaderInset(WebView webView, int topDp) {
+        if (topDp <= 0) {
+            return;
+        }
+
+        // Inject a real spacer INSIDE the website's top navigation instead of
+        // shrinking/moving the WebView. The navigation background therefore
+        // still fills the status-bar area, while the logo/text/menu start
+        // below it, exactly like adding top padding to the website header.
+        String js = "(function(){"
+            + "var top='" + topDp + "px';"
+            + "var candidates=Array.from(document.querySelectorAll('header,nav,[role=\\\"navigation\\\"]'));"
+            + "var header=candidates.find(function(el){var r=el.getBoundingClientRect();return r.top<=5&&r.width>=window.innerWidth*0.7;});"
+            + "if(!header){return;}"
+            + "var old=document.getElementById('convertflow-android-inset-style');"
+            + "if(old){old.remove();}"
+            + "var style=document.createElement('style');"
+            + "style.id='convertflow-android-inset-style';"
+            + "style.textContent='#convertflow-android-header-inset{height:" + topDp + "px!important;min-height:" + topDp + "px!important;width:100%!important;display:block!important;flex:none!important;}';"
+            + "document.head.appendChild(style);"
+            + "var spacer=document.getElementById('convertflow-android-header-inset');"
+            + "if(!spacer){spacer=document.createElement('div');spacer.id='convertflow-android-header-inset';header.insertBefore(spacer,header.firstChild);}"
+            + "spacer.style.height=top;spacer.style.minHeight=top;"
+            + "})();";
+
+        webView.evaluateJavascript(js, null);
     }
 }
