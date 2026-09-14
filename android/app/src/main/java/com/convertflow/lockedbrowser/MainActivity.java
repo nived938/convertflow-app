@@ -100,12 +100,14 @@ public class MainActivity extends BridgeActivity {
             return;
         }
 
-        // Inject a real spacer INSIDE the website's top navigation instead of
-        // shrinking/moving the WebView. The navigation background therefore
-        // still fills the status-bar area, while the logo/text/menu start
-        // below it, exactly like adding top padding to the website header.
+        // Keep the black navbar full-width and behind the status bar.
+        // Add the status-bar spacer at the top and a small bottom spacer so
+        // the logo/text/menu have comfortable vertical space inside the bar.
+        final int bottomDp = 10;
+
         String js = "(function(){"
             + "var top='" + topDp + "px';"
+            + "var bottom='" + bottomDp + "px';"
             + "var candidates=Array.from(document.querySelectorAll('header,nav,[role=\\\"navigation\\\"]'));"
             + "var header=candidates.find(function(el){var r=el.getBoundingClientRect();return r.top<=5&&r.width>=window.innerWidth*0.7;});"
             + "if(!header){return;}"
@@ -113,11 +115,14 @@ public class MainActivity extends BridgeActivity {
             + "if(old){old.remove();}"
             + "var style=document.createElement('style');"
             + "style.id='convertflow-android-inset-style';"
-            + "style.textContent='#convertflow-android-header-inset{height:" + topDp + "px!important;min-height:" + topDp + "px!important;width:100%!important;display:block!important;flex:none!important;}';"
+            + "style.textContent='#convertflow-android-header-inset{height:" + topDp + "px!important;min-height:" + topDp + "px!important;width:100%!important;display:block!important;flex:none!important;}#convertflow-android-header-bottom{height:" + bottomDp + "px!important;min-height:" + bottomDp + "px!important;width:100%!important;display:block!important;flex:none!important;}';"
             + "document.head.appendChild(style);"
             + "var spacer=document.getElementById('convertflow-android-header-inset');"
             + "if(!spacer){spacer=document.createElement('div');spacer.id='convertflow-android-header-inset';header.insertBefore(spacer,header.firstChild);}"
             + "spacer.style.height=top;spacer.style.minHeight=top;"
+            + "var bottomSpacer=document.getElementById('convertflow-android-header-bottom');"
+            + "if(!bottomSpacer){bottomSpacer=document.createElement('div');bottomSpacer.id='convertflow-android-header-bottom';header.appendChild(bottomSpacer);}"
+            + "bottomSpacer.style.height=bottom;bottomSpacer.style.minHeight=bottom;"
             + "})();";
 
         webView.evaluateJavascript(js, null);
