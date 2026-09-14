@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowInsetsController;
 
+import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -19,10 +20,8 @@ public class MainActivity extends BridgeActivity {
 
         Window window = getWindow();
 
-        // Android 15+ can force edge-to-edge layouts. Keep the WebView
-        // edge-to-edge, then explicitly apply the system-bar insets to it.
-        // This guarantees the website's top navigation starts below the
-        // Android status bar instead of being hidden underneath it.
+        // Use edge-to-edge and explicitly move the WebView content below
+        // the Android status bar and above the navigation bar.
         WindowCompat.setDecorFitsSystemWindows(window, false);
         window.setStatusBarColor(Color.WHITE);
         window.setNavigationBarColor(Color.WHITE);
@@ -47,13 +46,11 @@ public class MainActivity extends BridgeActivity {
         View webView = getBridge().getWebView();
 
         ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
-            WindowInsetsCompat systemBars = insets.getInsets(
+            Insets systemBars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars()
                     | WindowInsetsCompat.Type.displayCutout()
             );
 
-            // Add only the system-bar spacing. The website itself does not
-            // need to know about Android's status/navigation bar sizes.
             view.setPadding(
                 systemBars.left,
                 systemBars.top,
