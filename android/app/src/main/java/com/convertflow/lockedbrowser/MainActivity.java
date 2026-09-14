@@ -3,13 +3,12 @@ package com.convertflow.lockedbrowser;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -20,8 +19,9 @@ public class MainActivity extends BridgeActivity {
 
         Window window = getWindow();
 
-        // Use edge-to-edge and explicitly move the WebView content below
-        // the Android status bar and above the navigation bar.
+        // Do not let the Capacitor WebView draw behind the Android status bar.
+        // This is intentionally done with a WebView margin, not WebView
+        // padding, because fixed/sticky website navigation ignores padding.
         WindowCompat.setDecorFitsSystemWindows(window, false);
         window.setStatusBarColor(Color.WHITE);
         window.setNavigationBarColor(Color.WHITE);
@@ -43,24 +43,49 @@ public class MainActivity extends BridgeActivity {
             );
         }
 
-        View webView = getBridge().getWebView();
+        final View webView = getBridge().getWebView();
 
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
-            Insets systemBars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars()
-                    | WindowInsetsCompat.Type.displayCutout()
-            );
+        webView.setFitsSystemWindows(false);
 
-            view.setPadding(
-                systemBars.left,
-                systemBars.top,
-                systemBars.right,
-                systemBars.bottom
-            );
+        webView.setOnApplyWindowInsetsListener((view, insets) -> {
+            int top = 0;
+            int bottom = 0;
+            int left = 0;
+            int right = 0;
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                android.graphics.Insets bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()
+                );
+                top = bars.top;
+                bottom = bars.bottom;
+                left = bars.left;
+                right = bars.right;
+            } else {
+                top = insets.getSystemWindowInsetTop();
+                bottom = insets.getSystemWindowInsetBottom();
+                left = insets.getSystemWindowInsetLeft();
+                right = insets.getSystemWindowInsetRight();
+            }
+
+            ViewGroup.LayoutParams params = view.getLayoutParams();
+            if (params instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) params;
+                margins.leftMargin = left;
+                margins.topMargin = top;
+                margins.rightMargin = right;
+                margins.bottomMargin = bottom;
+                view.setLayoutParams(margins);
+            }
+
+            // Keep the WebView itself free of padding. The margin changes its
+            // actual viewport, so CSS position:fixed and position:sticky
+            // navigation bars also start below the Android status bar.
+            view.setPadding(0, 0, 0, 0);
 
             return insets;
         });
 
-        ViewCompat.requestApplyInsets(webView);
+        webView.post(() -> webView.requestApplyInsets());
     }
 }
