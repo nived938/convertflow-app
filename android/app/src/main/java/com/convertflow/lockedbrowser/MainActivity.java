@@ -19,27 +19,30 @@ public class MainActivity extends BridgeActivity {
 
         Window window = getWindow();
 
-        // Do not let the Capacitor WebView draw behind the Android status bar.
-        // This is intentionally done with a WebView margin, not WebView
-        // padding, because fixed/sticky website navigation ignores padding.
+        // Keep the app edge-to-edge so the top/header background fills the
+        // entire width, including the Android status-bar area.
         WindowCompat.setDecorFitsSystemWindows(window, false);
-        window.setStatusBarColor(Color.WHITE);
-        window.setNavigationBarColor(Color.WHITE);
 
+        // The status bar is transparent so the app background is visible
+        // behind it. This gives the top area the same full-width appearance
+        // as the original version of the app.
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.WHITE);
+        window.getDecorView().setBackgroundColor(Color.rgb(15, 23, 42));
+
+        // Use white Android status-bar icons/text because the top area is dark.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             WindowInsetsController controller = window.getInsetsController();
             if (controller != null) {
                 controller.setSystemBarsAppearance(
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                    WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
                     WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
                         | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
                 );
             }
         } else {
             window.getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                    | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
             );
         }
 
@@ -78,9 +81,9 @@ public class MainActivity extends BridgeActivity {
                 view.setLayoutParams(margins);
             }
 
-            // Keep the WebView itself free of padding. The margin changes its
-            // actual viewport, so CSS position:fixed and position:sticky
-            // navigation bars also start below the Android status bar.
+            // No WebView padding. The top margin moves the actual WebView
+            // viewport below the status bar, so fixed/sticky website text
+            // and the menu also start below the Android status bar.
             view.setPadding(0, 0, 0, 0);
 
             return insets;
