@@ -2,10 +2,13 @@ package com.convertflow.lockedbrowser;
 
 import android.graphics.Color;
 import android.os.Bundle;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowInsetsController;
 
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -16,10 +19,11 @@ public class MainActivity extends BridgeActivity {
 
         Window window = getWindow();
 
-        // Keep the WebView below the Android status bar instead of drawing
-        // underneath it. This prevents the website's top navigation from
-        // being hidden behind the phone's status-bar area.
-        WindowCompat.setDecorFitsSystemWindows(window, true);
+        // Android 15+ can force edge-to-edge layouts. Keep the WebView
+        // edge-to-edge, then explicitly apply the system-bar insets to it.
+        // This guarantees the website's top navigation starts below the
+        // Android status bar instead of being hidden underneath it.
+        WindowCompat.setDecorFitsSystemWindows(window, false);
         window.setStatusBarColor(Color.WHITE);
         window.setNavigationBarColor(Color.WHITE);
 
@@ -35,9 +39,31 @@ public class MainActivity extends BridgeActivity {
             }
         } else {
             window.getDecorView().setSystemUiVisibility(
-                android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                    | android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                    | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
             );
         }
+
+        View webView = getBridge().getWebView();
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+            WindowInsetsCompat systemBars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout()
+            );
+
+            // Add only the system-bar spacing. The website itself does not
+            // need to know about Android's status/navigation bar sizes.
+            view.setPadding(
+                systemBars.left,
+                systemBars.top,
+                systemBars.right,
+                systemBars.bottom
+            );
+
+            return insets;
+        });
+
+        ViewCompat.requestApplyInsets(webView);
     }
 }
